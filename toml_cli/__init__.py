@@ -73,14 +73,30 @@ def set_(
     toml_part = toml_file = tomlkit.parse(toml_path.read_text())
 
     for key_part in key.split(".")[:-1]:
-        try:
-            toml_part = toml_part[key_part]
-        except tomlkit.exceptions.NonExistentKey as err:
-            typer.echo(
-                f"error: non-existent key '{key}' can not be set to value '{value}'",
-                err=True,
-            )
-            raise typer.Exit(code=1) from err
+        match = re.search(r"(?P<key>.*?)\[(?P<index>\d+)\]", key_part)
+        if match:
+            array_key = match.group("key")
+            array_index = int(match.group("index"))
+            try:
+                toml_part = toml_part[array_key]
+            except KeyError as err:
+                typer.echo(f"error: key '{array_key}' not found", err=True)
+                raise typer.Exit(code=1) from err
+
+            try:
+                toml_part = toml_part[array_index]
+            except IndexError as err:
+                typer.echo(f"error: index '{array_key}[{array_index}]' not found", err=True)
+                raise typer.Exit(code=1) from err
+        else:
+            try:
+                toml_part = toml_part[key_part]
+            except tomlkit.exceptions.NonExistentKey as err:
+                typer.echo(
+                    f"error: non-existent key '{key}' can not be set to value '{value}'",
+                    err=True,
+                )
+                raise typer.Exit(code=1) from err
     try:
         parsed_value: str | int | float | bool | list
         if to_int:
